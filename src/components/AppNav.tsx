@@ -58,7 +58,7 @@ export default function AppNav() {
                       active && "ring-2 ring-primary/60"
                     )
                   : cn(
-                      "text-muted-foreground hover:text-foreground",
+                      "text-foreground/80 hover:text-foreground",
                       active && "bg-muted text-foreground"
                     )
               )}

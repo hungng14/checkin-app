@@ -2,6 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createDrizzle } from "@/config/database";
 /* simple page; no heavy animations to keep it snappy */
+import { formatVietnamDateTime } from "@/lib/utils";
 
 export default async function HistoryDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -30,7 +31,7 @@ export default async function HistoryDetailPage({ params }: { params: Promise<{ 
       <div className="mt-4 space-y-3">
         <div className="animate-in fade-in-0 slide-in-from-bottom-1 duration-300">
           <div className="text-sm text-muted-foreground">Timestamp</div>
-          <div className="font-medium">{new Date(data.created_at).toLocaleString()}</div>
+          <div className="font-medium">{formatVietnamDateTime(data.created_at)}</div>
         </div>
         {data.location && (
           <div className="animate-in fade-in-0 slide-in-from-bottom-1 duration-300">

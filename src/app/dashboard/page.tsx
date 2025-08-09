@@ -3,6 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import ChangeBackground from "@/components/ChangeBackground";
+import { formatVietnamDateTime } from "@/lib/utils";
 
 export default async function DashboardPage() {
   const supabase = await createSupabaseServerClient();
@@ -56,7 +57,7 @@ export default async function DashboardPage() {
                   className="h-full w-full object-cover transition-transform group-hover:scale-105"
                 />
                 <div className="absolute bottom-0 w-full bg-black/40 p-1 text-[11px] text-white">
-                  {new Date(c.created_at).toLocaleString()}
+                  {formatVietnamDateTime(c.created_at)}
                 </div>
               </Link>
             ))}

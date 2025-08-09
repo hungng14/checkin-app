@@ -5,6 +5,7 @@ import { createDrizzle } from "@/config/database";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { CalendarClock, Camera } from "lucide-react";
+import { formatVietnamDateTime } from "@/lib/utils";
 
 export default async function HistoryPage({
   searchParams,
@@ -75,7 +76,7 @@ export default async function HistoryPage({
                     className="h-full w-full object-cover transition-transform group-hover:scale-105"
                   />
                   <div className="absolute bottom-0 w-full bg-gradient-to-t from-black/60 to-transparent p-1 text-[11px] text-white">
-                    {new Date(c.created_at).toLocaleString()}
+                    {formatVietnamDateTime(c.created_at)}
                   </div>
                 </Link>
               ))}
