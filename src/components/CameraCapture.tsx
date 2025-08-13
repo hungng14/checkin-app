@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { Camera, RotateCcw, Loader2 } from "lucide-react";
+import { Camera, RotateCcw, Loader2, AlertCircle } from "lucide-react";
 
 const CHECKIN_WINDOW_MINUTES = 10;
 
@@ -17,57 +17,125 @@ export default function CameraCapture() {
   const [facingMode, setFacingMode] = useState<"user" | "environment">("user");
   const [isInitializing, setIsInitializing] = useState(true);
   const [hasMultipleCameras, setHasMultipleCameras] = useState(false);
+  const [cameraError, setCameraError] = useState<string | null>(null);
+  const [availableDevices, setAvailableDevices] = useState<MediaDeviceInfo[]>([]);
+  const [currentDeviceId, setCurrentDeviceId] = useState<string | null>(null);
   const router = useRouter();
   const supabase = createSupabaseBrowserClient();
 
-  // Check for multiple cameras on component mount
+  // Enhanced camera error handling
+  const handleCameraError = useCallback((error: any) => {
+    console.error("Camera error:", error);
+    setCameraError(null); // Clear any previous errors
+
+    switch (error.name) {
+      case "NotAllowedError":
+        setCameraError("Camera access denied. Please allow camera permissions and refresh the page.");
+        toast.error("Camera access denied. Please allow camera permissions.");
+        break;
+      case "NotFoundError":
+        setCameraError("No camera found on this device.");
+        toast.error("No camera found on this device.");
+        break;
+      case "NotSupportedError":
+        setCameraError("Camera not supported in this browser.");
+        toast.error("Camera not supported in this browser.");
+        break;
+      case "NotReadableError":
+        setCameraError("Camera is already in use by another application.");
+        toast.error("Camera is already in use by another application.");
+        break;
+      case "OverconstrainedError":
+        setCameraError("Camera constraints cannot be satisfied.");
+        toast.error("Camera constraints cannot be satisfied.");
+        break;
+      default:
+        setCameraError("Failed to access camera. Please try again.");
+        toast.error("Failed to access camera. Please try again.");
+    }
+  }, []);
+
+  // Check for available cameras and enumerate devices
   useEffect(() => {
     async function checkCameras() {
       try {
+        // Request permission first to get device labels
+        await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+
         const devices = await navigator.mediaDevices.enumerateDevices();
         const videoDevices = devices.filter(device => device.kind === 'videoinput');
+
+        setAvailableDevices(videoDevices);
         setHasMultipleCameras(videoDevices.length > 1);
+
+        // Set initial device ID if available
+        if (videoDevices.length > 0 && !currentDeviceId) {
+          // Try to find front camera first
+          const frontCamera = videoDevices.find(device =>
+            device.label.toLowerCase().includes('front') ||
+            device.label.toLowerCase().includes('user')
+          );
+          setCurrentDeviceId(frontCamera?.deviceId || videoDevices[0].deviceId);
+        }
       } catch (error) {
         console.warn("Could not enumerate devices:", error);
+        handleCameraError(error);
       }
     }
     checkCameras();
-  }, []);
+  }, [handleCameraError, currentDeviceId]);
 
-  // Initialize camera stream
+  // Initialize camera stream with improved constraints
   useEffect(() => {
     async function initCamera() {
       setIsInitializing(true);
+      setCameraError(null);
+
       try {
         // Stop existing stream
         if (stream) {
           stream.getTracks().forEach((track) => track.stop());
         }
 
-        const constraints = {
+        // Build constraints with better mobile support
+        const constraints: MediaStreamConstraints = {
           video: {
-            facingMode: facingMode,
-            width: { ideal: 1280 },
-            height: { ideal: 720 }
+            width: { ideal: 1280, max: 1920 },
+            height: { ideal: 720, max: 1080 },
+            frameRate: { ideal: 30, max: 60 }
           },
           audio: false
         };
+
+        // Use deviceId if available, otherwise use facingMode
+        if (currentDeviceId) {
+          (constraints.video as MediaTrackConstraints).deviceId = { exact: currentDeviceId };
+        } else {
+          (constraints.video as MediaTrackConstraints).facingMode = facingMode;
+        }
 
         const newStream = await navigator.mediaDevices.getUserMedia(constraints);
         setStream(newStream);
 
         if (videoRef.current) {
           videoRef.current.srcObject = newStream;
+
+          // Ensure video plays on mobile
+          videoRef.current.onloadedmetadata = () => {
+            videoRef.current?.play().catch(console.error);
+          };
         }
       } catch (error) {
-        console.error("Camera initialization error:", error);
-        toast.error("Camera access denied. Please allow camera permissions.");
+        handleCameraError(error);
       } finally {
         setIsInitializing(false);
       }
     }
 
-    initCamera();
+    // Only initialize if we have device info or it's the first load
+    if (availableDevices.length > 0 || currentDeviceId === null) {
+      initCamera();
+    }
 
     return () => {
       if (stream) {
@@ -75,11 +143,37 @@ export default function CameraCapture() {
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [facingMode]);
+  }, [facingMode, currentDeviceId, availableDevices.length, handleCameraError]);
 
-  const switchCamera = () => {
-    setFacingMode(prev => prev === "user" ? "environment" : "user");
-  };
+  // Enhanced camera switching with device-specific support
+  const switchCamera = useCallback(() => {
+    if (availableDevices.length > 1) {
+      // Find current device index
+      const currentIndex = availableDevices.findIndex(device => device.deviceId === currentDeviceId);
+
+      // Switch to next device, or first if at end
+      const nextIndex = (currentIndex + 1) % availableDevices.length;
+      const nextDevice = availableDevices[nextIndex];
+
+      setCurrentDeviceId(nextDevice.deviceId);
+
+      // Also update facing mode for fallback
+      setFacingMode(prev => prev === "user" ? "environment" : "user");
+    } else {
+      // Fallback to facing mode switching
+      setFacingMode(prev => prev === "user" ? "environment" : "user");
+    }
+  }, [availableDevices, currentDeviceId]);
+
+  // Retry camera initialization
+  const retryCamera = useCallback(() => {
+    setCameraError(null);
+    setIsInitializing(true);
+
+    // Reset device selection and try again
+    setCurrentDeviceId(null);
+    setFacingMode("user");
+  }, []);
 
   async function capture() {
     if (!videoRef.current || !canvasRef.current) return;
@@ -166,7 +260,25 @@ export default function CameraCapture() {
       {/* Camera Preview */}
       <div className="relative overflow-hidden rounded-2xl border-2 border-white/20 shadow-xl bg-black">
         <div className="aspect-[4/3] relative">
-          {isInitializing ? (
+          {cameraError ? (
+            <div className="absolute inset-0 flex items-center justify-center bg-black/80">
+              <div className="flex flex-col items-center gap-4 text-white p-6 text-center">
+                <AlertCircle className="h-12 w-12 text-red-400" />
+                <div>
+                  <p className="text-sm font-medium mb-2">Camera Error</p>
+                  <p className="text-xs text-gray-300 mb-4">{cameraError}</p>
+                  <Button
+                    onClick={retryCamera}
+                    variant="outline"
+                    size="sm"
+                    className="bg-white/10 border-white/20 text-white hover:bg-white/20"
+                  >
+                    Try Again
+                  </Button>
+                </div>
+              </div>
+            </div>
+          ) : isInitializing ? (
             <div className="absolute inset-0 flex items-center justify-center bg-black/80">
               <div className="flex flex-col items-center gap-3 text-white">
                 <Loader2 className="h-8 w-8 animate-spin" />
@@ -193,13 +305,13 @@ export default function CameraCapture() {
                 {/* Gradient overlays */}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-black/20" />
 
-                {/* Camera switch button */}
-                {hasMultipleCameras && (
+                {/* Camera switch button - show if multiple cameras OR if we have devices */}
+                {(hasMultipleCameras || availableDevices.length > 1) && (
                   <button
                     onClick={switchCamera}
                     disabled={isSubmitting || isInitializing}
-                    className="absolute top-4 right-4 p-3 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors disabled:opacity-50 backdrop-blur-sm"
-                    aria-label={`Switch to ${facingMode === "user" ? "back" : "front"} camera`}
+                    className="absolute top-4 right-4 p-3 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors disabled:opacity-50 backdrop-blur-sm pointer-events-auto"
+                    aria-label={`Switch camera (${availableDevices.length} available)`}
                   >
                     <RotateCcw className="h-5 w-5" />
                   </button>
@@ -207,7 +319,11 @@ export default function CameraCapture() {
 
                 {/* Camera mode indicator */}
                 <div className="absolute top-4 left-4 px-3 py-1 rounded-full bg-black/50 text-white text-xs backdrop-blur-sm">
-                  {facingMode === "user" ? "Front Camera" : "Back Camera"}
+                  {currentDeviceId ?
+                    availableDevices.find(d => d.deviceId === currentDeviceId)?.label?.split('(')[0]?.trim() ||
+                    (facingMode === "user" ? "Front Camera" : "Back Camera")
+                    : (facingMode === "user" ? "Front Camera" : "Back Camera")
+                  }
                 </div>
               </div>
             </>
@@ -221,13 +337,18 @@ export default function CameraCapture() {
       <div className="space-y-3">
         <Button
           onClick={capture}
-          disabled={isSubmitting || isInitializing}
-          className="w-full h-16 rounded-2xl text-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98] bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+          disabled={isSubmitting || isInitializing || !!cameraError}
+          className="w-full h-16 rounded-2xl text-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98] bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {isSubmitting ? (
             <div className="flex items-center gap-3">
               <Loader2 className="h-6 w-6 animate-spin" />
               <span>Saving Check-In...</span>
+            </div>
+          ) : cameraError ? (
+            <div className="flex items-center gap-3">
+              <AlertCircle className="h-6 w-6" />
+              <span>Camera Unavailable</span>
             </div>
           ) : (
             <div className="flex items-center gap-3">
@@ -239,8 +360,20 @@ export default function CameraCapture() {
 
         {/* Helper text */}
         <p className="text-center text-sm text-muted-foreground">
-          Position your face in the circle and tap the button
+          {cameraError
+            ? "Fix camera issues above to continue"
+            : "Position your face in the circle and tap the button"
+          }
         </p>
+
+        {/* Debug info for development */}
+        {process.env.NODE_ENV === 'development' && (
+          <div className="text-xs text-gray-500 text-center space-y-1">
+            <p>Devices: {availableDevices.length}</p>
+            <p>Current: {currentDeviceId ? 'Device ID' : facingMode}</p>
+            <p>Multiple: {hasMultipleCameras ? 'Yes' : 'No'}</p>
+          </div>
+        )}
       </div>
     </div>
   );
