@@ -44,83 +44,85 @@ export default async function HistoryPage({
   const hasNext = totalPages > 0 && page < totalPages;
 
   return (
-    <main className="mx-auto max-w-2xl px-4 py-6">
-      <Card className="mb-4 overflow-hidden bg-[linear-gradient(to_bottom,_#f7d488_0%,_#fbfbea_22%,_#e7f7ee_38%,_#a8d5c8_60%,_#2a4a5e_86%,_#193043_100%)] shadow-md">
-        <CardHeader className="flex flex-row items-center justify-between">
-          <div>
-            <CardTitle className="flex items-center gap-2">
-              <CalendarClock className="h-5 w-5" /> History
-            </CardTitle>
-            <CardDescription>Your recent check-ins</CardDescription>
-          </div>
-          <Button asChild size="sm" className="rounded-full">
-            <Link href="/dashboard/checkin" className="flex items-center gap-1">
-              <Camera className="h-4 w-4" />
-              New
-            </Link>
-          </Button>
-        </CardHeader>
-        <CardContent>
-          {items && items.length > 0 ? (
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-              {items.map((c) => (
-                <Link
-                  key={c.id}
-                  href={`/history/${c.id}`}
-                  className="group relative block aspect-square overflow-hidden rounded-md border bg-muted/30 animate-in fade-in-0 slide-in-from-bottom-1 duration-300"
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={c.photo_url}
-                    alt="Checkin"
-                    className="h-full w-full object-cover transition-transform group-hover:scale-105"
-                  />
-                  <div className="absolute bottom-0 w-full bg-gradient-to-t from-black/60 to-transparent p-1 text-[11px] text-white">
-                    {formatVietnamDateTime(c.created_at)}
-                  </div>
-                </Link>
-              ))}
+    <main className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
+      <div className="mx-auto max-w-2xl px-4 py-6">
+        <Card className="mb-4 overflow-hidden bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm border-slate-200/50 dark:border-slate-700/50 shadow-lg">
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2 text-slate-800 dark:text-slate-100">
+                <CalendarClock className="h-5 w-5 text-blue-600 dark:text-blue-400" /> History
+              </CardTitle>
+              <CardDescription className="text-slate-600 dark:text-slate-400">Your recent check-ins</CardDescription>
             </div>
-          ) : (
-            <div className="flex flex-col items-center justify-center gap-3 py-10 text-center text-muted-foreground">
-              <div className="rounded-full border p-4">
-                <CalendarClock className="h-6 w-6" />
+            <Button asChild size="sm" className="rounded-full bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600">
+              <Link href="/checkin" className="flex items-center gap-1 text-white">
+                <Camera className="h-4 w-4" />
+                New
+              </Link>
+            </Button>
+          </CardHeader>
+          <CardContent>
+            {items && items.length > 0 ? (
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                {items.map((c) => (
+                  <Link
+                    key={c.id}
+                    href={`/history/${c.id}`}
+                    className="group relative block aspect-square overflow-hidden rounded-lg border border-slate-200/50 dark:border-slate-600/50 bg-slate-50/30 dark:bg-slate-700/30 animate-in fade-in-0 slide-in-from-bottom-1 duration-300 shadow-sm hover:shadow-md transition-shadow"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={c.photo_url}
+                      alt="Checkin"
+                      className="h-full w-full object-cover transition-transform group-hover:scale-105"
+                    />
+                    <div className="absolute bottom-0 w-full bg-gradient-to-t from-black/70 to-transparent p-1 text-[11px] text-white">
+                      {formatVietnamDateTime(c.created_at)}
+                    </div>
+                  </Link>
+                ))}
               </div>
-              <p>No check-ins yet.</p>
-              <Button asChild className="rounded-full">
-                <Link href="/dashboard/checkin" className="flex items-center gap-2">
-                  <Camera className="h-4 w-4" /> Make your first check-in
-                </Link>
-              </Button>
-            </div>
-          )}
-          {items && items.length > 0 && (
-            <div className="mt-4 flex items-center justify-between">
-              {hasPrev ? (
-                <Button asChild variant="outline" size="sm" className="rounded-full">
-                  <Link href={`/history?page=${page - 1}`}>Previous</Link>
+            ) : (
+              <div className="flex flex-col items-center justify-center gap-3 py-10 text-center text-slate-600 dark:text-slate-400">
+                <div className="rounded-full border border-slate-300 dark:border-slate-600 p-4">
+                  <CalendarClock className="h-6 w-6" />
+                </div>
+                <p>No check-ins yet.</p>
+                <Button asChild className="rounded-full bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600">
+                  <Link href="/checkin" className="flex items-center gap-2 text-white">
+                    <Camera className="h-4 w-4" /> Make your first check-in
+                  </Link>
                 </Button>
-              ) : (
-                <Button variant="outline" size="sm" className="rounded-full" disabled>
-                  Previous
-                </Button>
-              )}
-              <div className="text-sm text-muted-foreground">
-                Page {page}{totalPages > 0 ? ` of ${totalPages}` : ""}
               </div>
-              {hasNext ? (
-                <Button asChild variant="outline" size="sm" className="rounded-full">
-                  <Link href={`/history?page=${page + 1}`}>Next</Link>
-                </Button>
-              ) : (
-                <Button variant="outline" size="sm" className="rounded-full" disabled>
-                  Next
-                </Button>
-              )}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+            )}
+            {items && items.length > 0 && (
+              <div className="mt-4 flex items-center justify-between">
+                {hasPrev ? (
+                  <Button asChild variant="outline" size="sm" className="rounded-full bg-white/80 dark:bg-slate-700/50 border-slate-300 dark:border-slate-600">
+                    <Link href={`/history?page=${page - 1}`} className="text-slate-700 dark:text-slate-300">Previous</Link>
+                  </Button>
+                ) : (
+                  <Button variant="outline" size="sm" className="rounded-full bg-white/80 dark:bg-slate-700/50 border-slate-300 dark:border-slate-600" disabled>
+                    Previous
+                  </Button>
+                )}
+                <div className="text-sm text-slate-600 dark:text-slate-400">
+                  Page {page}{totalPages > 0 ? ` of ${totalPages}` : ""}
+                </div>
+                {hasNext ? (
+                  <Button asChild variant="outline" size="sm" className="rounded-full bg-white/80 dark:bg-slate-700/50 border-slate-300 dark:border-slate-600">
+                    <Link href={`/history?page=${page + 1}`} className="text-slate-700 dark:text-slate-300">Next</Link>
+                  </Button>
+                ) : (
+                  <Button variant="outline" size="sm" className="rounded-full bg-white/80 dark:bg-slate-700/50 border-slate-300 dark:border-slate-600" disabled>
+                    Next
+                  </Button>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </main>
   );
 }

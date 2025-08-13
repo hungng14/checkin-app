@@ -24,22 +24,61 @@ export default function ChangeBackground() {
       const user = auth.user;
       if (!user) throw new Error("Not authenticated");
 
-      const path = `backgrounds/${user.id}/bg.jpg`;
+      // Generate a unique filename
+      const randomStr = Math.random().toString(36).substring(2, 15);
+      const timestamp = Date.now();
+      const uniqueFilename = `${randomStr}-${timestamp}-bg.jpg`;
+      const path = `backgrounds/${user.id}/${uniqueFilename}`;
+
       const { error: uploadErr } = await supabase.storage.from("checkin-photos").upload(path, file, {
         contentType: file.type || "image/jpeg",
-        upsert: true,
       });
+
       if (uploadErr) throw uploadErr;
       const { data: pub } = supabase.storage.from("checkin-photos").getPublicUrl(path);
 
-      const { error: upErr } = await supabase
+      // First check if profile exists, then update or insert accordingly
+      const { data: existingProfile } = await supabase
         .from("profiles")
-        .upsert({ id: user.id, background_url: pub.publicUrl }, { onConflict: "id" });
-      if (upErr) throw upErr;
+        .select("id")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (existingProfile) {
+        // Profile exists, update it
+        const { error: updateErr } = await supabase
+          .from("profiles")
+          .update({ background_url: pub.publicUrl })
+          .eq("user_id", user.id);
+
+        if (updateErr) {
+          console.error("Update error:", updateErr);
+          throw updateErr;
+        }
+      } else {
+        // Profile doesn't exist, create it
+        console.log("Creating new profile for user:", user.id);
+        const baseUsername = user.email?.split('@')[0] || 'user';
+        const timestamp = Date.now().toString().slice(-4);
+        const username = `${baseUsername}_${timestamp}`;
+
+        const { error: insertErr } = await supabase
+          .from("profiles")
+          .insert({
+            user_id: user.id,
+            background_url: pub.publicUrl,
+            username: username,
+            display_name: user.email?.split('@')[0] || 'User'
+          });
+
+        if (insertErr) {
+          console.error("Insert error:", insertErr);
+          throw insertErr;
+        }
+      }
 
       router.refresh();
     } catch (e: unknown) {
-      // eslint-disable-next-line no-alert
       const message = e instanceof Error ? e.message : "Failed to update background";
       alert(message);
     } finally {

@@ -24,25 +24,25 @@ export default async function HistoryDetailPage({ params }: { params: Promise<{ 
 
   return (
     <main className="mx-auto max-w-xl px-4 py-6">
-      <div className="aspect-square overflow-hidden rounded-xl animate-in fade-in-0 duration-300">
+      <div className="aspect-square overflow-hidden rounded-xl animate-in fade-in-0 duration-300 border border-slate-200/50 dark:border-slate-600/50 shadow-lg">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={data.photo_url} alt="Checkin" className="h-full w-full object-cover" />
       </div>
       <div className="mt-4 space-y-3">
         <div className="animate-in fade-in-0 slide-in-from-bottom-1 duration-300">
-          <div className="text-sm text-muted-foreground">Timestamp</div>
-          <div className="font-medium">{formatVietnamDateTime(data.created_at)}</div>
+          <div className="text-sm text-slate-600 dark:text-slate-400">Timestamp</div>
+          <div className="font-medium text-slate-800 dark:text-slate-100">{formatVietnamDateTime(data.created_at)}</div>
         </div>
         {data.location && (
           <div className="animate-in fade-in-0 slide-in-from-bottom-1 duration-300">
-            <div className="text-sm text-muted-foreground">Location</div>
-            <div className="font-medium">{data.location}</div>
+            <div className="text-sm text-slate-600 dark:text-slate-400">Location</div>
+            <div className="font-medium text-slate-800 dark:text-slate-100">{data.location}</div>
           </div>
         )}
         {data.device_info && (
           <div className="animate-in fade-in-0 slide-in-from-bottom-1 duration-300">
-            <div className="text-sm text-muted-foreground">Device</div>
-            <div className="break-words font-medium">{data.device_info}</div>
+            <div className="text-sm text-slate-600 dark:text-slate-400">Device</div>
+            <div className="break-words font-medium text-slate-800 dark:text-slate-100">{data.device_info}</div>
           </div>
         )}
       </div>

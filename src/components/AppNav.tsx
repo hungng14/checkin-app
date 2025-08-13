@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Camera, Clock, Home } from "lucide-react";
+import { Camera, Clock, Home, Heart } from "lucide-react";
 import { cn } from "@/lib/utils";
 import SignOutButton from "@/components/SignOutButton";
 import { useEffect, useState } from "react";
@@ -35,7 +35,8 @@ export default function AppNav() {
 
   const items = [
     { href: "/dashboard", label: "Home", Icon: Home },
-    { href: "/dashboard/checkin", label: "Check-In", Icon: Camera },
+    { href: "/social", label: "Social", Icon: Heart },
+    { href: "/checkin", label: "Check-In", Icon: Camera },
     { href: "/history", label: "History", Icon: Clock },
   ];
 
@@ -44,7 +45,7 @@ export default function AppNav() {
       <div className="pointer-events-auto flex items-center gap-2 rounded-full border bg-background/95 px-2 py-2 shadow-lg backdrop-blur supports-[backdrop-filter]:bg-background/70">
         {items.map(({ href, label, Icon }) => {
           const active = pathname === href || pathname?.startsWith(href + "/");
-          const isPrimary = href === "/dashboard/checkin";
+          const isPrimary = href === "/checkin";
           return (
             <Link
               key={href}

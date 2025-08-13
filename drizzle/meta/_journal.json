@@ -8,6 +8,20 @@
       "when": 1754734196437,
       "tag": "0000_rapid_tyrannus",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1755049766228,
+      "tag": "0001_flippant_kronos",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1755051644287,
+      "tag": "0002_add_username_and_user_id",
+      "breakpoints": true
     }
   ]
 }

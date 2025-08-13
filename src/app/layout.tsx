@@ -80,9 +80,9 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased text-foreground min-h-dvh relative bg-[linear-gradient(to_bottom,_#f7d488_0%,_#fbfbea_22%,_#e7f7ee_38%,_#a8d5c8_60%,_#2a4a5e_86%,_#193043_100%)]`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased text-foreground min-h-dvh relative bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900`}
       >
-        <div className="mx-auto min-h-dvh w-full max-w-screen-sm rounded-2xl border border-white/40 p-4 sm:p-6 md:p-8 shadow-2xl supports-[backdrop-filter]:backdrop-blur-lg bg-gradient-to-tr from-white/80 via-white/60 to-white/40 dark:border-white/10 dark:from-white/15 dark:via-white/10 dark:to-white/5">
+        <div className="mx-auto min-h-dvh w-full max-w-screen-sm rounded-2xl border border-slate-200/50 dark:border-slate-700/50 p-4 sm:p-6 md:p-8 shadow-2xl supports-[backdrop-filter]:backdrop-blur-lg bg-white/80 dark:bg-slate-800/80">
           {children}
         </div>
         <AppToaster />
