@@ -22,6 +22,20 @@
       "when": 1755051644287,
       "tag": "0002_add_username_and_user_id",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1755352527547,
+      "tag": "0003_cute_silver_surfer",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1755353394572,
+      "tag": "0004_tough_firelord",
+      "breakpoints": true
     }
   ]
 }

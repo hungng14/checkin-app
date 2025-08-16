@@ -27,10 +27,23 @@ export const follows = pgTable("follows", {
   unique().on(table.followerId, table.followingId),
 ]);
 
+export const reactions = pgTable("reactions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id").notNull(),
+  checkinId: uuid("checkin_id").notNull(),
+  reactionType: text("reaction_type").notNull(), // 'haha', 'heart', 'wow'
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  unique().on(table.userId, table.checkinId, table.reactionType), // One reaction type per user per checkin
+]);
+
 export type Profile = typeof profiles.$inferSelect;
 export type NewProfile = typeof profiles.$inferInsert;
 export type Checkin = typeof checkins.$inferSelect;
 export type NewCheckin = typeof checkins.$inferInsert;
 export type Follow = typeof follows.$inferSelect;
 export type NewFollow = typeof follows.$inferInsert;
+export type Reaction = typeof reactions.$inferSelect;
+export type NewReaction = typeof reactions.$inferInsert;
 

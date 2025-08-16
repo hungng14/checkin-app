@@ -2,10 +2,17 @@ import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Heart, MessageCircle, Users, UserPlus } from "lucide-react";
+import { Heart, Users, UserPlus } from "lucide-react";
 import Link from "next/link";
 import { formatVietnamDateTime } from "@/lib/utils";
 import { createDrizzle } from "@/config/database";
+import ReactionButton from "@/components/ReactionButton";
+
+interface ReactionData {
+  type: string;
+  count: number;
+  userReacted: boolean;
+}
 
 interface SocialCheckin {
   id: string;
@@ -17,6 +24,8 @@ interface SocialCheckin {
     email: string;
     displayName: string;
   };
+  reactions: ReactionData[];
+  userReactions: string[];
 }
 
 export default async function SocialPage({
@@ -39,7 +48,7 @@ export default async function SocialPage({
   await client.connect();
 
   try {
-    // Get social feed
+    // Get social feed first (optimized)
     const { rows: checkins } = await client.query(
       `SELECT
         c.id,
@@ -56,6 +65,36 @@ export default async function SocialPage({
        LIMIT $2 OFFSET $3`,
       [user.id, limit, offset]
     );
+
+    // Get all reactions for these checkins in one query
+    const checkinIds = checkins.map(c => c.id);
+    let reactionsData = [];
+    let userReactionsData = [];
+
+    if (checkinIds.length > 0) {
+      // Get reaction counts and user reaction status
+      const { rows: reactions } = await client.query(
+        `SELECT
+          checkin_id,
+          reaction_type,
+          COUNT(*) as count,
+          BOOL_OR(user_id = $1) as user_reacted
+         FROM reactions
+         WHERE checkin_id = ANY($2)
+         GROUP BY checkin_id, reaction_type`,
+        [user.id, checkinIds]
+      );
+      reactionsData = reactions;
+
+      // Get user's specific reactions
+      const { rows: userReactions } = await client.query(
+        `SELECT checkin_id, reaction_type
+         FROM reactions
+         WHERE user_id = $1 AND checkin_id = ANY($2)`,
+        [user.id, checkinIds]
+      );
+      userReactionsData = userReactions;
+    }
 
     // Get total count
     const { rows: countRows } = await client.query(
@@ -78,17 +117,40 @@ export default async function SocialPage({
     const hasNext = page < totalPages;
     const hasPrev = page > 1;
 
-    const socialCheckins: SocialCheckin[] = checkins.map(row => ({
-      id: row.id,
-      photoUrl: row.photo_url,
-      createdAt: row.created_at,
-      location: row.location,
-      user: {
-        id: row.user_id,
-        email: '', // Placeholder - will be populated when profiles have emails
-        displayName: row.display_name || `User ${row.user_id.slice(0, 8)}`,
-      },
-    }));
+
+
+
+    const socialCheckins: SocialCheckin[] = checkins.map(row => {
+      // Get reactions for this checkin
+      const checkinReactions = reactionsData
+        .filter(r => r.checkin_id === row.id)
+        .map(r => ({
+          type: r.reaction_type,
+          count: parseInt(r.count),
+          userReacted: r.user_reacted
+        }));
+
+      // Get user reactions for this checkin
+      const checkinUserReactions = userReactionsData
+        .filter(ur => ur.checkin_id === row.id)
+        .map(ur => ur.reaction_type);
+
+      return {
+        id: row.id,
+        photoUrl: row.photo_url,
+        createdAt: row.created_at,
+        location: row.location,
+        user: {
+          id: row.user_id,
+          email: '', // Placeholder - will be populated when profiles have emails
+          displayName: row.display_name || `User ${row.user_id.slice(0, 8)}`,
+        },
+        reactions: checkinReactions,
+        userReactions: checkinUserReactions,
+      };
+    });
+
+
 
     await client.end();
 
@@ -151,15 +213,17 @@ export default async function SocialPage({
                         className="h-full w-full object-cover transition-transform hover:scale-105"
                       />
                     </div>
-                    <div className="flex items-center gap-4 text-slate-600 dark:text-slate-400">
-                      <Button variant="ghost" size="sm" className="h-8 px-2 rounded-full hover:bg-pink-50 dark:hover:bg-pink-900/20 hover:text-pink-600 dark:hover:text-pink-400">
-                        <Heart className="h-4 w-4 mr-1" />
-                        <span className="text-xs">Like</span>
-                      </Button>
-                      <Button variant="ghost" size="sm" className="h-8 px-2 rounded-full hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:text-blue-600 dark:hover:text-blue-400">
+                    <div className="flex items-center gap-4 text-slate-600 dark:text-slate-400 pb-6">
+                      <ReactionButton
+                        checkinId={checkin.id}
+                        initialReactions={checkin.reactions}
+                        initialUserReactions={checkin.userReactions}
+                        className="relative"
+                      />
+                      {/* <Button variant="ghost" size="sm" className="h-8 px-2 rounded-full hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:text-blue-600 dark:hover:text-blue-400">
                         <MessageCircle className="h-4 w-4 mr-1" />
                         <span className="text-xs">Comment</span>
-                      </Button>
+                      </Button> */}
                     </div>
                   </CardContent>
                 </Card>
