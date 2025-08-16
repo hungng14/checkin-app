@@ -1,11 +1,11 @@
-"use client";
+'use client';
 
-import { useState, useEffect, useRef } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { Heart, SmilePlus } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { toast } from "sonner";
-import ReactionPicker, { reactionOptions } from "./ReactionPicker";
+import { useState, useEffect, useMemo } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { SmilePlus } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { toast } from 'sonner';
+import ReactionPicker, { reactionOptions } from './ReactionPicker';
 
 interface ReactionData {
   type: string;
@@ -24,13 +24,11 @@ export default function ReactionButton({
   checkinId,
   initialReactions = [],
   initialUserReactions = [],
-  className = ""
+  className = '',
 }: ReactionButtonProps) {
   const [reactions, setReactions] = useState<ReactionData[]>(initialReactions);
-  const [userReactions, setUserReactions] = useState<string[]>(initialUserReactions);
   const [isPickerOpen, setIsPickerOpen] = useState(false);
-  const [pendingActions, setPendingActions] = useState<Set<string>>(new Set());
-  const buttonRef = useRef<HTMLButtonElement>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   // Fetch reactions data (only when needed, e.g., after user interaction)
   const fetchReactions = async () => {
@@ -39,10 +37,9 @@ export default function ReactionButton({
       if (response.ok) {
         const data = await response.json();
         setReactions(data.reactions || []);
-        setUserReactions(data.userReactions || []);
       }
     } catch (error) {
-      console.error("Failed to fetch reactions:", error);
+      console.error('Failed to fetch reactions:', error);
     }
   };
 
@@ -54,100 +51,111 @@ export default function ReactionButton({
   }, [checkinId]);
 
   const handleReactionSelect = async (reactionType: string) => {
-    if (pendingActions.has(reactionType)) return;
-
-    const isAlreadyReacted = userReactions.includes(reactionType);
-
-    // Optimistic update - update UI immediately
-    if (isAlreadyReacted) {
-      // Remove reaction optimistically
-      setUserReactions(prev => prev.filter(r => r !== reactionType));
-      setReactions(prev => {
-        const updated = [...prev];
-        const existingIndex = updated.findIndex(r => r.type === reactionType);
-        if (existingIndex !== -1) {
-          updated[existingIndex].count = Math.max(0, updated[existingIndex].count - 1);
-          updated[existingIndex].userReacted = updated[existingIndex].count > 0;
-          if (updated[existingIndex].count === 0) {
-            updated.splice(existingIndex, 1);
-          }
-        }
-        return updated;
-      });
-    } else {
-      // Add reaction optimistically
-      setUserReactions(prev => [...prev, reactionType]);
-      setReactions(prev => {
-        const updated = [...prev];
-        const existingIndex = updated.findIndex(r => r.type === reactionType);
-        if (existingIndex !== -1) {
-          updated[existingIndex].count += 1;
-          updated[existingIndex].userReacted = true;
-        } else {
-          updated.push({
-            type: reactionType,
-            count: 1,
-            userReacted: true
-          });
-        }
-        return updated;
-      });
+    // Prevent double execution during React StrictMode in development
+    if (isProcessing) {
+      console.log('Already processing reaction, skipping...');
+      return;
     }
 
-    // Add to pending actions
-    setPendingActions(prev => new Set(prev).add(reactionType));
+    setIsProcessing(true);
 
-    // Show immediate feedback
-    // toast.success(
-    //   <div className="flex items-center gap-2">
-    //     <motion.span
-    //       initial={{ scale: 0 }}
-    //       animate={{ scale: [0, 1.2, 1] }}
-    //       transition={{ duration: 0.3 }}
-    //     >
-    //       {reactionOption?.emoji}
-    //     </motion.span>
-    //     <span>{isAlreadyReacted ? 'Removed' : 'Added'} {reactionOption?.label}!</span>
-    //   </div>
-    // );
+    const isAlreadyReacted = !!reactions.find((r) => r.type === reactionType)
+      ?.userReacted;
 
-    // Sync with API in background
-    try {
-      if (isAlreadyReacted) {
-        // Remove reaction
-        const response = await fetch(`/api/reactions?checkinId=${checkinId}&reactionType=${reactionType}`, {
-          method: "DELETE",
-        });
+    const updatedReactions = JSON.parse(
+      JSON.stringify(reactions, null, 2)
+    ) as ReactionData[];
 
-        if (!response.ok) {
-          // Revert optimistic update on failure
-          setUserReactions(prev => [...prev, reactionType]);
-          setReactions(prev => {
-            const updated = [...prev];
-            const existingIndex = updated.findIndex(r => r.type === reactionType);
-            if (existingIndex !== -1) {
-              updated[existingIndex].count += 1;
-              updated[existingIndex].userReacted = true;
-            } else {
-              updated.push({
-                type: reactionType,
-                count: 1,
-                userReacted: true
-              });
-            }
-            return updated;
-          });
-          toast.error("Failed to remove reaction");
-        } else {
-          // Fetch fresh data after successful removal
-          fetchReactions();
-        }
+    if (isAlreadyReacted) {
+      // Remove user's reaction optimistically
+      const existingIndex = updatedReactions.findIndex(
+        (r) => r.type === reactionType
+      );
+
+      if (existingIndex !== -1) {
+        // Decrease count by 1 since user is removing their reaction
+        const newCount = updatedReactions[existingIndex].count - 1;
+
+        updatedReactions[existingIndex].count = newCount < 0 ? 0 : newCount;
+
+        updatedReactions[existingIndex].userReacted = false;
+        // Don't remove the reaction from the list - keep it visible with updated count
+        // This way users can see all available reactions even if count becomes 0
+      }
+      setReactions(updatedReactions);
+    } else {
+      // Add user's reaction optimistically
+      const existingIndex = updatedReactions.findIndex(
+        (r) => r.type === reactionType
+      );
+      if (existingIndex !== -1) {
+        // Increase count by 1 since user is adding their reaction
+        const newCount = updatedReactions[existingIndex].count + 1;
+        updatedReactions[existingIndex].count = newCount < 0 ? 0 : newCount;
+        updatedReactions[existingIndex].userReacted = true;
       } else {
-        // Add reaction
-        const response = await fetch("/api/reactions", {
-          method: "POST",
+        // Create new reaction entry with count 1
+        updatedReactions.push({
+          type: reactionType,
+          count: 1,
+          userReacted: true, // This field is not used anymore, we use userReactions array
+        });
+      }
+
+      setReactions(updatedReactions);
+    }
+
+    // Sync with API in background (non-blocking)
+    syncReactionWithAPI(reactionType, isAlreadyReacted);
+
+    // Reset processing flag after a short delay to allow for UI updates
+    setTimeout(() => setIsProcessing(false), 1000);
+  };
+
+  // Separate async function for API sync - runs in background
+  const syncReactionWithAPI = async (
+    reactionType: string,
+    wasAlreadyReacted: boolean
+  ) => {
+    try {
+      if (wasAlreadyReacted) {
+        // Remove reaction from server
+        await fetch(
+          `/api/reactions?checkinId=${checkinId}&reactionType=${reactionType}`,
+          {
+            method: 'DELETE',
+          }
+        );
+
+        // if (!response.ok) {
+        //   // Revert optimistic update on failure - add user reaction back
+        //   setUserReactions((prev) => [...prev, reactionType]);
+        //   setReactions((prev) => {
+        //     const updated = [...prev];
+        //     const existingIndex = updated.findIndex(
+        //       (r) => r.type === reactionType
+        //     );
+        //     if (existingIndex !== -1) {
+        //       // Add count back since removal failed
+        //       updated[existingIndex].count += 1;
+        //     } else {
+        //       // Recreate the reaction entry
+        //       updated.push({
+        //         type: reactionType,
+        //         count: 1,
+        //         userReacted: false,
+        //       });
+        //     }
+        //     return updated;
+        //   });
+        //   toast.error('Failed to remove reaction - reverted');
+        // }
+      } else {
+        // Add reaction to server
+        await fetch('/api/reactions', {
+          method: 'POST',
           headers: {
-            "Content-Type": "application/json",
+            'Content-Type': 'application/json',
           },
           body: JSON.stringify({
             checkinId,
@@ -155,177 +163,165 @@ export default function ReactionButton({
           }),
         });
 
-        if (!response.ok) {
-          // Revert optimistic update on failure
-          setUserReactions(prev => prev.filter(r => r !== reactionType));
-          setReactions(prev => {
-            const updated = [...prev];
-            const existingIndex = updated.findIndex(r => r.type === reactionType);
-            if (existingIndex !== -1) {
-              updated[existingIndex].count = Math.max(0, updated[existingIndex].count - 1);
-              updated[existingIndex].userReacted = updated[existingIndex].count > 0;
-              if (updated[existingIndex].count === 0) {
-                updated.splice(existingIndex, 1);
-              }
-            }
-            return updated;
-          });
-          toast.error("Failed to add reaction");
-        } else {
-          // Fetch fresh data after successful addition
-          fetchReactions();
-        }
+        // if (!response.ok) {
+        //   // Revert optimistic update on failure - remove user reaction
+        //   setUserReactions((prev) => prev.filter((r) => r !== reactionType));
+        //   setReactions((prev) => {
+        //     const updated = [...prev];
+        //     const existingIndex = updated.findIndex(
+        //       (r) => r.type === reactionType
+        //     );
+        //     if (existingIndex !== -1) {
+        //       // Decrease count back since addition failed
+        //       updated[existingIndex].count = Math.max(0, updated[existingIndex].count - 1);
+        //       // Keep the reaction visible even if count becomes 0
+        //     }
+        //     return updated;
+        //   });
+        //   toast.error('Failed to add reaction - reverted');
+        // }
       }
     } catch (error) {
-      console.error("Failed to sync reaction:", error);
-      // Revert optimistic update on error
-      if (isAlreadyReacted) {
-        setUserReactions(prev => [...prev, reactionType]);
-      } else {
-        setUserReactions(prev => prev.filter(r => r !== reactionType));
-      }
-      toast.error("Failed to sync reaction");
+      console.error('Failed to sync reaction:', error);
+      // Revert optimistic update on network error
+      // if (wasAlreadyReacted) {
+      //   // Revert removal - add user reaction back
+      //   setUserReactions((prev) => [...prev, reactionType]);
+      //   setReactions((prev) => {
+      //     const updated = [...prev];
+      //     const existingIndex = updated.findIndex((r) => r.type === reactionType);
+      //     if (existingIndex !== -1) {
+      //       updated[existingIndex].count += 1;
+      //     } else {
+      //       updated.push({
+      //         type: reactionType,
+      //         count: 1,
+      //         userReacted: false,
+      //       });
+      //     }
+      //     return updated;
+      //   });
+      // } else {
+      //   // Revert addition - remove user reaction
+      //   setUserReactions((prev) => prev.filter((r) => r !== reactionType));
+      //   setReactions((prev) => {
+      //     const updated = [...prev];
+      //     const existingIndex = updated.findIndex((r) => r.type === reactionType);
+      //     if (existingIndex !== -1) {
+      //       updated[existingIndex].count = Math.max(0, updated[existingIndex].count - 1);
+      //       // Keep reaction visible even if count becomes 0
+      //     }
+      //     return updated;
+      //   });
+      // }
+      toast.error('Network error - reaction reverted');
     } finally {
-      // Remove from pending actions
-      setPendingActions(prev => {
-        const updated = new Set(prev);
-        updated.delete(reactionType);
-        return updated;
-      });
     }
   };
 
-  const totalReactions = reactions.reduce((sum, r) => sum + r.count, 0);
+  const outputReactions = useMemo(() => {
+    return reactions.filter(r => r.count > 0)
+  }, [reactions]);
 
   return (
     <div className={`relative ${className}`}>
-      {/* Show user's reactions as individual buttons */}
-      <div className="flex items-center gap-1">
-        {userReactions.length > 0 ? (
-          // Show user's active reactions
-          userReactions.map((reactionType) => {
-            const reactionOption = reactionOptions.find(r => r.type === reactionType);
-            const reactionData = reactions.find(r => r.type === reactionType);
-            const isPending = pendingActions.has(reactionType);
+      {/* Show all available reactions with counts */}
+      <div className='flex items-center gap-1'>
+        {/* Show all reaction types that have been used, or all available types if none have been used */}
+        {outputReactions.map((reactionData) => {
+          const reactionOption = reactionOptions.find(
+            (r) => r.type === reactionData.type
+          );
+          const userHasReacted = reactions.find(
+            (r) => r.type === reactionData.type
+          )?.userReacted;
 
-            return (
-              <motion.div
-                key={reactionType}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                transition={{ duration: 0.1 }}
-              >
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => handleReactionSelect(reactionType)}
-                  disabled={isPending}
-                  className={`
-                    h-8 px-2 rounded-full transition-all duration-200
-                    bg-pink-100 dark:bg-pink-900/30 hover:bg-pink-200 dark:hover:bg-pink-900/50 cursor-pointer
-                    text-pink-600 dark:text-pink-400
-                    ${isPending ? 'opacity-50' : ''}
-                  `}
-                >
-                  <motion.div
-                    className="flex items-center gap-1"
-                    animate={{
-                      scale: isPending ? 0.95 : 1,
-                      opacity: isPending ? 0.7 : 1
-                    }}
-                    transition={{ duration: 0.1 }}
-                  >
-                    <motion.span
-                      initial={{ scale: 0, rotate: -180 }}
-                      animate={{ scale: 1, rotate: 0 }}
-                      transition={{
-                        type: "spring",
-                        stiffness: 400,
-                        damping: 25
-                      }}
-                      className="text-sm"
-                    >
-                      {reactionOption?.emoji}
-                    </motion.span>
+          // Show all reactions that exist in the reactions array (they've been used at least once)
+          // This ensures reactions don't disappear when count goes to 0
 
-                    <AnimatePresence mode="wait">
-                      <motion.span
-                        key={reactionData?.count || 0}
-                        initial={{ opacity: 0, y: -10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: 10 }}
-                        transition={{ duration: 0.15 }}
-                        className="text-xs"
-                      >
-                        {reactionData?.count || 0}
-                      </motion.span>
-                    </AnimatePresence>
-                  </motion.div>
-                </Button>
-              </motion.div>
-            );
-          })
-        ) : (
-          // Show default reaction button when user has no reactions
-          <motion.div
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            transition={{ duration: 0.1 }}
-          >
-            <Button
-              ref={buttonRef}
-              variant="ghost"
-              size="sm"
-              onClick={() => setIsPickerOpen(!isPickerOpen)}
-              className="cursor-pointer h-8 px-2 rounded-full transition-all duration-200 hover:bg-pink-50 dark:hover:bg-pink-900/20 hover:text-pink-600 dark:hover:text-pink-400"
+          return (
+            <motion.div
+              key={reactionData.type}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              transition={{ duration: 0.1 }}
             >
-              <motion.div
-                className="flex items-center gap-1"
-                transition={{ duration: 0.1 }}
+              <Button
+                variant='ghost'
+                size='sm'
+                onClick={() => handleReactionSelect(reactionData.type)}
+                className={`
+                    h-8 px-2 rounded-full transition-all duration-200 cursor-pointer
+                    ${
+                      userHasReacted
+                        ? 'bg-blue-100 dark:bg-blue-900/30 hover:bg-blue-200 dark:hover:bg-blue-900/50 text-blue-600 dark:text-blue-400 ring-1 ring-blue-300 dark:ring-blue-700'
+                        : 'bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400'
+                    }
+                  `}
               >
                 <motion.div
+                  className='flex items-center gap-1'
                   animate={{
-                    scale: isPickerOpen ? 1.1 : 1,
-                    rotate: isPickerOpen ? 15 : 0
+                    scale: 1,
+                    opacity: 1,
                   }}
-                  transition={{ duration: 0.2 }}
+                  transition={{ duration: 0.1 }}
                 >
-                  <Heart className="h-4 w-4" />
-                </motion.div>
-
-                <AnimatePresence mode="wait">
                   <motion.span
-                    key={totalReactions}
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: 10 }}
-                    transition={{ duration: 0.15 }}
-                    className="text-xs"
+                    initial={{ scale: 0, rotate: -180 }}
+                    animate={{ scale: 1, rotate: 0 }}
+                    transition={{
+                      type: 'spring',
+                      stiffness: 400,
+                      damping: 25,
+                    }}
+                    className='text-sm'
                   >
-                    {totalReactions > 0 ? totalReactions : "React"}
+                    {reactionOption?.emoji}
                   </motion.span>
-                </AnimatePresence>
-              </motion.div>
-            </Button>
-          </motion.div>
-        )}
+
+                  <AnimatePresence mode='wait'>
+                    <motion.span
+                      key={reactionData.count}
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: 10 }}
+                      transition={{ duration: 0.15 }}
+                      className='text-xs font-medium'
+                    >
+                      {reactionData.count}
+                    </motion.span>
+                  </AnimatePresence>
+                </motion.div>
+              </Button>
+            </motion.div>
+          );
+        })}
 
         {/* Add reaction button */}
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => setIsPickerOpen(!isPickerOpen)}
-          className="h-8 w-8 p-0 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 cursor-pointer"
+        <motion.div
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
+          transition={{ duration: 0.1 }}
         >
-          <SmilePlus className="h-3 w-3" />
-        </Button>
+          <Button
+            variant='ghost'
+            size='sm'
+            onClick={() => setIsPickerOpen(!isPickerOpen)}
+            className=' p-1 h-7 w-7 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 cursor-pointer flex gap-1'
+          >
+            <SmilePlus className='h-6 w-6' />
+          </Button>
+        </motion.div>
       </div>
 
       <ReactionPicker
         isOpen={isPickerOpen}
         onSelect={handleReactionSelect}
         onClose={() => setIsPickerOpen(false)}
-        currentReaction={userReactions}
+        currentReaction={reactions
+          .filter((r) => r.userReacted)
+          .map((r) => r.type)}
       />
 
       {/* Reaction summary */}
