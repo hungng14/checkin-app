@@ -99,7 +99,7 @@ export default function RootLayout({
         </div>
 
         {/* Foreground content container */}
-        <div className='relative z-10 mx-auto min-h-dvh w-full max-w-screen-sm rounded-2xl border border-slate-200/50 dark:border-slate-700/50 p-4 sm:p-6 md:p-8 shadow-2xl supports-[backdrop-filter]:backdrop-blur-lg bg-white/80 dark:bg-slate-800/80'>
+        <div className='relative z-10 mx-auto min-h-dvh w-full max-w-screen-sm rounded-2xl border border-slate-200/50 dark:border-slate-700/50 p-4 sm:p-6 md:p-8 !pb-[100px] shadow-2xl supports-[backdrop-filter]:backdrop-blur-lg bg-white/80 dark:bg-slate-800/80'>
           {children}
         </div>
         <AppToaster />
