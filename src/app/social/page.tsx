@@ -136,9 +136,9 @@ export default async function SocialPage({
                         <p className="text-xs text-slate-600 dark:text-slate-400">
                           {formatVietnamDateTime(checkin.createdAt)}
                         </p>
-                        {checkin.location && (
+                        {/* {checkin.location && (
                           <p className="text-xs text-slate-600 dark:text-slate-400">📍 {checkin.location}</p>
-                        )}
+                        )} */}
                       </div>
                     </div>
                   </CardHeader>

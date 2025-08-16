@@ -32,23 +32,34 @@ export default async function CheckinPage() {
         </div>
       </div>
 
-      {/* Main Card */}
-      <Card className="animate-in fade-in-0 slide-in-from-bottom-2 duration-500 border-slate-200/50 dark:border-slate-700/50 shadow-2xl bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm">
-        <CardHeader className="pb-4">
-          <CardTitle className="flex items-center gap-2 text-lg text-slate-800 dark:text-slate-100">
-            <div className="p-2 rounded-full bg-gradient-to-r from-blue-100 to-purple-100 dark:from-blue-900/30 dark:to-purple-900/30">
-              <ArrowLeft className="h-4 w-4 text-blue-600 dark:text-blue-400 rotate-180" />
-            </div>
-            Live Camera Preview
-          </CardTitle>
-          <CardDescription className="text-base text-slate-600 dark:text-slate-400">
-            Position yourself comfortably and capture your daily check-in moment.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="pt-0">
-          <CameraCapture />
-        </CardContent>
-      </Card>
+      {/* Mobile full-bleed camera */}
+      <div className="block md:hidden -mx-4">
+        <div className="px-4">
+          <h2 className="text-lg font-semibold mb-2 text-slate-800 dark:text-slate-100">Live Camera Preview</h2>
+          <p className="text-sm text-slate-600 dark:text-slate-400 mb-3">Position yourself comfortably and capture your daily check-in moment.</p>
+        </div>
+        <CameraCapture />
+      </div>
+
+      {/* Desktop/Tablet card layout */}
+      <div className="hidden md:block">
+        <Card className="animate-in fade-in-0 slide-in-from-bottom-2 duration-500 border-slate-200/50 dark:border-slate-700/50 shadow-2xl bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm">
+          <CardHeader className="pb-4">
+            <CardTitle className="flex items-center gap-2 text-lg text-slate-800 dark:text-slate-100">
+              <div className="p-2 rounded-full bg-gradient-to-r from-blue-100 to-purple-100 dark:from-blue-900/30 dark:to-purple-900/30">
+                <ArrowLeft className="h-4 w-4 text-blue-600 dark:text-blue-400 rotate-180" />
+              </div>
+              Live Camera Preview
+            </CardTitle>
+            <CardDescription className="text-base text-slate-600 dark:text-slate-400">
+              Position yourself comfortably and capture your daily check-in moment.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <CameraCapture />
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Tips Section */}
       <div className="mt-6 p-4 rounded-xl bg-slate-50/80 dark:bg-slate-700/50 border border-slate-200/50 dark:border-slate-600/50 backdrop-blur-sm">
