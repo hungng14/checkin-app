@@ -34,7 +34,7 @@ export default function SignOutButton({ className, labelHidden = true }: SignOut
       onClick={handleSignOut}
       disabled={isLoading}
       className={cn(
-        "flex items-center gap-2 rounded-full px-4 py-2 text-sm transition-colors text-foreground/80 hover:text-foreground disabled:opacity-60",
+        "flex items-center cursor-pointer gap-2 rounded-full px-4 py-2 text-sm transition-colors text-foreground/80 hover:text-foreground disabled:opacity-60",
         className
       )}
       aria-label="Sign out"
